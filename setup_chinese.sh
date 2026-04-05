@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ============================================================
-# Debian/Ubuntu 中文环境全能优化脚本 (增强版)
-# 兼容：Debian 10/11/12, Ubuntu 20.04/22.04/24.04/26.04
+# Debian/Ubuntu 语言环境管理脚本 (交互版)
+# 支持：中文环境一键配置 与 系统环境一键还原
 # ============================================================
 
 # 定义颜色
@@ -11,80 +11,121 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${GREEN}=== 开始配置中文环境 (兼容 Debian & Ubuntu) ===${NC}"
-
-# 1. 检查 Root 权限
+# 检查 Root 权限
 if [ "$EUID" -ne 0 ]; then
   echo -e "${RED}错误：请使用 root 权限运行此脚本 (sudo bash $0)${NC}"
   exit 1
 fi
 
-# 2. 检测系统类型
+# 检测系统类型
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     OS=$ID
 else
     OS="debian"
 fi
-echo -e "${GREEN}检测到系统: $OS${NC}"
 
-# 3. 更新软件源并安装基础包
-echo -e "${GREEN}[1/6] 更新软件源并安装必要工具...${NC}"
-export DEBIAN_FRONTEND=noninteractive
-apt update -y
-apt install -y fonts-noto-cjk fonts-wqy-microhei fonts-wqy-zenhei manpages-zh locales
+# --- 函数：设置中文环境 ---
+setup_chinese() {
+    echo -e "${GREEN}>>> 正在开启中文环境配置...${NC}"
+    
+    # 1. 安装基础包
+    export DEBIAN_FRONTEND=noninteractive
+    apt update -y
+    apt install -y fonts-noto-cjk fonts-wqy-microhei fonts-wqy-zenhei manpages-zh locales
 
-# 4. 修复系统翻译缺失 (针对 Cloud/Lite 精简版)
-echo -e "${GREEN}[2/6] 修复精简版系统翻译文件...${NC}"
-if [ "$OS" == "ubuntu" ]; then
-    apt install -y language-pack-zh-hans
-    apt install --reinstall -y locales
-else
-    echo "正在强制重装核心组件以恢复翻译文件 (.mo)..."
-    apt install --reinstall -y locales bash coreutils grep sed
-fi
+    # 2. 修复精简版系统翻译
+    if [ "$OS" == "ubuntu" ]; then
+        apt install -y language-pack-zh-hans
+        apt install --reinstall -y locales
+    else
+        apt install --reinstall -y locales bash coreutils grep sed
+    fi
 
-# 5. 生成 Locale
-echo -e "${GREEN}[3/6] 生成中文 Locale...${NC}"
-[ -f /etc/locale.gen ] || touch /etc/locale.gen
-sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/g' /etc/locale.gen
-sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
-locale-gen zh_CN.UTF-8 en_US.UTF-8
+    # 3. 生成 Locale
+    sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/g' /etc/locale.gen
+    sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
+    locale-gen zh_CN.UTF-8 en_US.UTF-8
 
-# 6. 设置系统全局语言
-echo -e "${GREEN}[4/6] 配置系统默认语言...${NC}"
-update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh
+    # 4. 强制设置全局变量 (解决 LC_ALL 锁死问题)
+    cat > /etc/default/locale <<EOF
+LANG=zh_CN.UTF-8
+LANGUAGE=zh_CN:zh
+LC_ALL=zh_CN.UTF-8
+EOF
 
-# 7. 写入全局环境变量 (对所有用户生效)
-echo -e "${GREEN}[5/6] 配置全局环境变量...${NC}"
-cat > /etc/profile.d/chinese.sh <<EOF
+    # 5. 写入 Profile
+    cat > /etc/profile.d/chinese.sh <<EOF
 export LANG=zh_CN.UTF-8
 export LANGUAGE=zh_CN:zh
+export LC_ALL=zh_CN.UTF-8
 alias cman='man -L zh_CN'
 EOF
-chmod +x /etc/profile.d/chinese.sh
+    chmod +x /etc/profile.d/chinese.sh
 
-# 8. 修改 SSH 配置 (防止客户端语言污染)
-echo -e "${GREEN}[6/6] 优化 SSH 服务端设置...${NC}"
-if [ -f /etc/ssh/sshd_config ]; then
-    # 备份原配置
-    cp /etc/ssh/sshd_config "/etc/ssh/sshd_config.bak.$(date +%F_%T)"
-    # 注释掉 AcceptEnv
-    sed -i 's/^\s*AcceptEnv LANG LC_*/#AcceptEnv LANG LC_*/g' /etc/ssh/sshd_config
-    
-    # 检查语法并重启
-    if sshd -t > /dev/null 2>&1; then
+    # 6. 修改 SSH 配置
+    if [ -f /etc/ssh/sshd_config ]; then
+        sed -i 's/^\s*AcceptEnv LANG LC_*/#AcceptEnv LANG LC_*/g' /etc/ssh/sshd_config
         systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null
-        echo "SSH 配置已更新并重启。"
-    else
-        echo -e "${RED}警告: SSH 配置语法检查失败，已跳过重启。${NC}"
     fi
-fi
 
-echo -e "\n${GREEN}========================================${NC}"
-echo -e "${GREEN}配置完成！请执行以下操作：${NC}"
-echo -e "1. 立即生效: ${YELLOW}source /etc/profile.d/chinese.sh${NC}"
-echo -e "2. 建议：${YELLOW}断开并重新连接 SSH${NC}"
-echo -e "3. 验证：输入 ${YELLOW}date${NC} 查看是否显示为中文"
-echo -e "4. 验证：输入 ${YELLOW}cman ls${NC} 查看中文帮助手册"
-echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}√ 中文环境配置完成！请重新连接 SSH 或执行 'source /etc/profile.d/chinese.sh'${NC}"
+}
+
+# --- 函数：还原英文环境 ---
+restore_english() {
+    echo -e "${YELLOW}>>> 正在还原系统默认语言 (en_US.UTF-8)...${NC}"
+
+    # 1. 还原 Locale 配置文件
+    cat > /etc/default/locale <<EOF
+LANG=en_US.UTF-8
+EOF
+
+    # 2. 删除自定义脚本
+    rm -f /etc/profile.d/chinese.sh
+
+    # 3. 清理 .bashrc 中的残留
+    sed -i '/zh_CN.UTF-8/d' ~/.bashrc
+    sed -i '/alias cman=/d' ~/.bashrc
+
+    # 4. 恢复 SSH AcceptEnv 设置
+    if [ -f /etc/ssh/sshd_config ]; then
+        sed -i 's/^#AcceptEnv LANG LC_*/AcceptEnv LANG LC_*/g' /etc/ssh/sshd_config
+        systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null
+    fi
+
+    # 5. 立即清理当前会话变量
+    export LANG=en_US.UTF-8
+    unset LANGUAGE
+    unset LC_ALL
+
+    echo -e "${GREEN}√ 系统已还原为英文环境！请重新连接 SSH 即可生效。${NC}"
+}
+
+# --- 交互主菜单 ---
+clear
+echo -e "${GREEN}==============================================${NC}"
+echo -e "${GREEN}    Debian/Ubuntu 语言环境管理脚本           ${NC}"
+echo -e "${GREEN}    系统检测: $OS                             ${NC}"
+echo -e "${GREEN}==============================================${NC}"
+echo -e " 1. 一键设置中文环境 (zh_CN.UTF-8)"
+echo -e " 2. 还原系统默认环境 (en_US.UTF-8)"
+echo -e " 3. 退出脚本"
+echo -e "${GREEN}==============================================${NC}"
+read -p "请输入选项 [1-3]: " choice
+
+case $choice in
+    1)
+        setup_chinese
+        ;;
+    2)
+        restore_english
+        ;;
+    3)
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}无效选项，请重新运行脚本。${NC}"
+        exit 1
+        ;;
+esac
