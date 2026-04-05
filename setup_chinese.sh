@@ -141,7 +141,7 @@ while true; do
     echo -e "${YELLOW} 1. 一键设置中文环境 (zh_CN.UTF-8)${NC}"
     echo -e "${YELLOW} 2. 还原系统默认环境 (en_US.UTF-8)${NC}"
     echo -e "${YELLOW} 3. 退出 ${NC}"
-    echo -e "${GREEN}==============================================${NC}"
+    echo -e "${CYAN}----------------------------------------------${NC}"
     read -p "请输入选项 : " choice
 
     case $choice in
