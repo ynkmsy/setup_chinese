@@ -29,13 +29,13 @@ fi
 echo -e "${GREEN}检测到系统: $OS${NC}"
 
 # 3. 更新软件源并安装基础包
-echo -e "${GREEN}[1/7] 更新软件源并安装必要工具...${NC}"
+echo -e "${GREEN}[1/6] 更新软件源并安装必要工具...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt update -y
 apt install -y fonts-noto-cjk fonts-wqy-microhei fonts-wqy-zenhei manpages-zh locales
 
 # 4. 修复系统翻译缺失 (针对 Cloud/Lite 精简版)
-echo -e "${GREEN}[2/7] 修复精简版系统翻译文件...${NC}"
+echo -e "${GREEN}[2/6] 修复精简版系统翻译文件...${NC}"
 if [ "$OS" == "ubuntu" ]; then
     apt install -y language-pack-zh-hans
     apt install --reinstall -y locales
@@ -45,18 +45,18 @@ else
 fi
 
 # 5. 生成 Locale
-echo -e "${GREEN}[3/7] 生成中文 Locale...${NC}"
+echo -e "${GREEN}[3/6] 生成中文 Locale...${NC}"
 [ -f /etc/locale.gen ] || touch /etc/locale.gen
 sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/g' /etc/locale.gen
 sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
 locale-gen zh_CN.UTF-8 en_US.UTF-8
 
 # 6. 设置系统全局语言
-echo -e "${GREEN}[4/7] 配置系统默认语言...${NC}"
+echo -e "${GREEN}[4/6] 配置系统默认语言...${NC}"
 update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh
 
 # 7. 写入全局环境变量 (对所有用户生效)
-echo -e "${GREEN}[5/7] 配置全局环境变量...${NC}"
+echo -e "${GREEN}[5/6] 配置全局环境变量...${NC}"
 cat > /etc/profile.d/chinese.sh <<EOF
 export LANG=zh_CN.UTF-8
 export LANGUAGE=zh_CN:zh
@@ -65,7 +65,7 @@ EOF
 chmod +x /etc/profile.d/chinese.sh
 
 # 8. 修改 SSH 配置 (防止客户端语言污染)
-echo -e "${GREEN}[6/7] 优化 SSH 服务端设置...${NC}"
+echo -e "${GREEN}[6/6] 优化 SSH 服务端设置...${NC}"
 if [ -f /etc/ssh/sshd_config ]; then
     # 备份原配置
     cp /etc/ssh/sshd_config "/etc/ssh/sshd_config.bak.$(date +%F_%T)"
