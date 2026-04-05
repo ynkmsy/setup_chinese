@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# Debian/Ubuntu 语言环境管理脚本 
+# Debian/Ubuntu 语言环境管理脚本 (交互版)
 # 支持：中文环境一键配置 与 系统环境一键还原
 # ============================================================
 
@@ -24,6 +24,12 @@ if [ -f /etc/os-release ]; then
 else
     OS="debian"
 fi
+
+# --- 函数：等待任意键继续 ---
+pause_ret() {
+    echo -e "\n${YELLOW}按任意键返回主菜单...${NC}"
+    read -n 1 -s -r
+}
 
 # --- 函数：设置中文环境 ---
 setup_chinese() {
@@ -69,7 +75,9 @@ EOF
         systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null
     fi
 
-    echo -e "${GREEN}√ 中文环境配置完成！请重新连接 SSH 或执行 'source /etc/profile.d/chinese.sh'${NC}"
+    echo -e "${GREEN}√ 中文环境配置完成！${NC}"
+    echo -e "提示：请执行 'source /etc/profile.d/chinese.sh' 或重新连接 SSH 生效。"
+    pause_ret
 }
 
 # --- 函数：还原英文环境 ---
@@ -99,33 +107,37 @@ EOF
     unset LANGUAGE
     unset LC_ALL
 
-    echo -e "${GREEN}√ 系统已还原为英文环境！请重新连接 SSH 即可生效。${NC}"
+    echo -e "${GREEN}√ 系统已还原为英文环境！${NC}"
+    pause_ret
 }
 
-# --- 交互主菜单 ---
-clear
-echo -e "${GREEN}==============================================${NC}"
-echo -e "${GREEN}    Debian/Ubuntu 语言环境管理脚本           ${NC}"
-echo -e "${GREEN}    系统检测: $OS                             ${NC}"
-echo -e "${GREEN}==============================================${NC}"
-echo -e " 1. 一键设置中文环境 (zh_CN.UTF-8)"
-echo -e " 2. 还原系统默认环境 (en_US.UTF-8)"
-echo -e " 3. 退出"
-echo -e "${GREEN}==============================================${NC}"
-read -p "请输入选项 [1-3]: " choice
+# --- 交互主菜单循环 ---
+while true; do
+    clear
+    echo -e "${GREEN}==============================================${NC}"
+    echo -e "${GREEN}    Debian/Ubuntu 语言环境管理脚本           ${NC}"
+    echo -e "${GREEN}    系统检测: $OS                             ${NC}"
+    echo -e "${GREEN}==============================================${NC}"
+    echo -e " 1. 一键设置中文环境 (zh_CN.UTF-8)"
+    echo -e " 2. 还原系统默认环境 (en_US.UTF-8)"
+    echo -e " 3. 退出脚本"
+    echo -e "${GREEN}==============================================${NC}"
+    read -p "请输入选项 [1-3]: " choice
 
-case $choice in
-    1)
-        setup_chinese
-        ;;
-    2)
-        restore_english
-        ;;
-    3)
-        exit 0
-        ;;
-    *)
-        echo -e "${RED}无效选项，请重新运行脚本。${NC}"
-        exit 1
-        ;;
-esac
+    case $choice in
+        1)
+            setup_chinese
+            ;;
+        2)
+            restore_english
+            ;;
+        3)
+            echo -e "${YELLOW}退出脚本。${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}无效选项，请重新选择。${NC}"
+            sleep 1
+            ;;
+    esac
+done
